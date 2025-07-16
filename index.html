@@ -1,3 +1,4 @@
+<!-- Paste this full HTML in your index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +10,7 @@
       margin: 0;
       padding: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #ece9e6, #ffffff);
+      background: linear-gradient(to bottom right,#848484, #d3d3d3, #ffffff, #d3d3d3, #848484);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -69,9 +70,12 @@
       animation: pulse 2s infinite;
     }
 
+    #level-select {
+      margin-bottom: 10px;
+    }
+
     #game-container {
       display: grid;
-      grid-template-columns: repeat(10, 30px);
       gap: 2px;
       margin-top: 10px;
     }
@@ -141,25 +145,57 @@
       font-size: 14px;
       background-color: #f57c00;
     }
+
+    select#level-select {
+      width: 280px;
+      padding: 10px 14px;
+      font-size: 16px;
+      border: 2px solid #2196f3;
+      border-radius: 6px;
+      background-color: #f8f8f8;
+      color: #333;
+      outline: none;
+      transition: border-color 0.3s ease;
+      margin-top: -10px;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20fill%3D'%232196f3'%20height%3D'24'%20viewBox%3D'0%200%2024%2024'%20width%3D'24'%20xmlns%3D'http%3A//www.w3.org/2000/svg'%3E%3Cpath%20d%3D'M7%2010l5%205%205-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px 16px;
+    }
+
+    select#level-select:hover {
+      border-color: #0b7dda;
+    }
+
+    select#level-select:focus {
+      border-color: #0b7dda;
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+    }
+
   </style>
 </head>
 <body>
 
-<!-- 🎵 Background Music -->
+<!-- 🎵 Music & Sounds -->
 <audio id="bg-music" loop autoplay>
   <source src="https://www.bensound.com/bensound-music/bensound-creativeminds.mp3" type="audio/mpeg">
 </audio>
-
-<!-- 🔊 Click Sound -->
 <audio id="click-sound">
   <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_2c535f3e14.mp3" type="audio/mpeg">
 </audio>
 
 <!-- Start Screen -->
 <div id="start-screen" class="active">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/2/29/Minesweeper_Icon.svg" width="100" alt="Minesweeper Icon">
+  <img src="./minesweeper-bg.png" width="500" alt="Minesweeper Icon">
   <h1>Minesweeper</h1>
   <p class="tagline">⚠️ Avoid the bombs, clear the field!</p>
+  <label for="level-select" style="font-size: 16px;">Choose Difficulty:</label>
+  <select id="level-select">
+    <option value="easy">Easy (8x8, 10 bombs)</option>
+    <option value="medium" selected>Medium (10x10, 15 bombs)</option>
+    <option value="hard">Hard (12x12, 20 bombs)</option>
+  </select>
   <button onclick="startGame()">Start Game</button>
 </div>
 
@@ -168,7 +204,7 @@
   <button id="sound-toggle" onclick="toggleSound()">🔊 Sound: ON</button>
   <div class="info">
     <span>Time: <span id="timer">0</span>s</span>
-    <span>Flags: <span id="flags-left">10</span></span>
+    <span>Flags: <span id="flags-left">0</span></span>
   </div>
   <div id="game-container"></div>
   <button onclick="resetGame()">Reset</button>
@@ -177,27 +213,27 @@
 <!-- Popup -->
 <div id="popup">
   <h2 id="popup-message"></h2>
-  <button onclick="closePopup()">OK</button>
+  <p id="score-text"></p>
+  <button id="closePopupBtn">OK</button>
+</div>
+
+<!-- Leaderboard Section -->
+<div id="leaderboard" style="margin-top: 20px; display: none;">
+  <h2>🏅 Leaderboard</h2>
+  <ul id="score-list"></ul>
+  <button onclick="gotoHome()">New Game</button>
+  <button onclick="clearLeaderboard()">Clear Leaderboard</button>
 </div>
 
 <script>
-  const gridSize = 10;
-  let bombs = [], revealedCount = 0, totalSafeCells = gridSize * gridSize - 10, flagsLeft = 10;
-  let timer = 0, timerInterval, gameOver = false;
-  let soundOn = true;
+  let gridSize = 8;
+  let bombCount = 10;
+  let bombs = [], revealedCount = 0, flagsLeft = bombCount;
+  let totalSafeCells, timer = 0, timerInterval, gameOver = false, soundOn = true;
 
   const bgMusic = document.getElementById("bg-music");
   const clickSound = document.getElementById("click-sound");
   const soundBtn = document.getElementById("sound-toggle");
-
-  function showPopup(message) {
-    document.getElementById("popup-message").textContent = message;
-    document.getElementById("popup").style.display = "block";
-  }
-
-  function closePopup() {
-    document.getElementById("popup").style.display = "none";
-  }
 
   function toggleSound() {
     soundOn = !soundOn;
@@ -206,10 +242,38 @@
   }
 
   function startGame() {
+    const level = document.getElementById("level-select").value;
+    if (level === "easy") [gridSize, bombCount] = [8, 10];
+    else if (level === "medium") [gridSize, bombCount] = [10, 15];
+    else [gridSize, bombCount] = [12, 20];
+
+    flagsLeft = bombCount;
+    totalSafeCells = gridSize * gridSize - bombCount;
+
     document.getElementById('start-screen').classList.remove('active');
     document.getElementById('game-screen').classList.add('active');
-    resetGame();
+    document.getElementById("flags-left").innerText = flagsLeft;
+    document.getElementById("game-container").style.gridTemplateColumns = `repeat(${gridSize}, 30px)`;
     bgMusic.play();
+    resetGame();
+  }
+
+  function showPopup(message, score = "", fn) {
+    document.getElementById("popup-message").textContent = message;
+    document.getElementById("score-text").textContent = score;
+    document.getElementById("popup").style.display = "block";
+    document.getElementById("closePopupBtn").addEventListener("click", fn);
+  }
+
+  function closePopup() {
+    document.getElementById("popup").style.display = "none";
+  }
+
+  function gotoHome() {
+    document.getElementById("popup").style.display = "none";
+    document.getElementById('start-screen').classList.add('active');
+    document.getElementById('game-screen').classList.remove('active');
+    document.getElementById("leaderboard").style.display = "none";
   }
 
   function startTimer() {
@@ -224,7 +288,7 @@
   function createBombs() {
     bombs = [];
     const set = new Set();
-    while (set.size < 10) {
+    while (set.size < bombCount) {
       const x = Math.floor(Math.random() * gridSize);
       const y = Math.floor(Math.random() * gridSize);
       set.add(`${x},${y}`);
@@ -237,15 +301,11 @@
   }
 
   function countAdjacentBombs(x, y) {
-    if (isBomb(x, y)) return -1;
     let count = 0;
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
-        if (dx === 0 && dy === 0) continue;
         const nx = x + dx, ny = y + dy;
-        if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-          if (isBomb(nx, ny)) count++;
-        }
+        if (nx >= 0 && ny >= 0 && nx < gridSize && ny < gridSize && isBomb(nx, ny)) count++;
       }
     }
     return count;
@@ -253,27 +313,20 @@
 
   function revealCell(cell, value) {
     if (cell.classList.contains("revealed") || cell.dataset.flagged === "true") return;
-
     cell.classList.add("revealed");
     cell.style.pointerEvents = "none";
-
     if (soundOn) {
       clickSound.currentTime = 0;
       clickSound.play();
     }
-
     if (value === "💣") {
       cell.classList.add("bomb");
       cell.textContent = value;
       return;
     }
-
     cell.textContent = value === "0" ? "" : value;
     revealedCount++;
-
-    if (revealedCount === totalSafeCells && !gameOver) {
-      winGame();
-    }
+    if (revealedCount === totalSafeCells && !gameOver) winGame();
   }
 
   function revealEmptyArea(x, y) {
@@ -288,9 +341,7 @@
         for (let dx = -1; dx <= 1; dx++) {
           for (let dy = -1; dy <= 1; dy++) {
             const nx = cx + dx, ny = cy + dy;
-            if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-              stack.push([nx, ny]);
-            }
+            if (nx >= 0 && ny >= 0 && nx < gridSize && ny < gridSize) stack.push([nx, ny]);
           }
         }
       }
@@ -316,31 +367,24 @@
   document.addEventListener("click", function (e) {
     const cell = e.target;
     if (!cell.classList.contains("cell") || gameOver || cell.dataset.flagged === "true") return;
-
     const [x, y] = cell.id.split(",").map(Number);
     const value = cell.dataset.value;
-
     if (value === "💣") {
       revealCell(cell, value);
       gameOver = true;
       clearInterval(timerInterval);
       document.querySelectorAll(".cell").forEach(c => revealCell(c, c.dataset.value));
-      showPopup("💥 Game Over!");
+      showPopup("💥 Game Over!", undefined, closePopup);
       return;
     }
-
-    if (value === "0") {
-      revealEmptyArea(x, y);
-    } else {
-      revealCell(cell, value);
-    }
+    if (value === "0") revealEmptyArea(x, y);
+    else revealCell(cell, value);
   });
 
   document.addEventListener("contextmenu", function (e) {
     e.preventDefault();
     const cell = e.target;
     if (!cell.classList.contains("cell") || cell.classList.contains("revealed") || gameOver) return;
-
     const isFlagged = cell.dataset.flagged === "true";
     if (isFlagged) {
       cell.textContent = "";
@@ -357,20 +401,52 @@
   function winGame() {
     gameOver = true;
     clearInterval(timerInterval);
-    showPopup("🏆 You Win! Time: " + timer + "s");
+    showPopup("🏆 You Win! Time: " + timer + "s", undefined, closePopup);
+    saveScore(timer);
   }
+
 
   function resetGame() {
     gameOver = false;
     revealedCount = 0;
-    flagsLeft = 10;
+    flagsLeft = bombCount;
     document.getElementById("timer").innerText = "0";
     document.getElementById("flags-left").innerText = flagsLeft;
     createBombs();
     renderGrid();
     startTimer();
-    closePopup();
+    // closePopup();
   }
+
+  function saveScore(time) {
+    const scores = JSON.parse(localStorage.getItem("minesweeper-scores") || "[]");
+    scores.push({ time, date: new Date().toLocaleString() });
+    scores.sort((a, b) => a.time - b.time);
+    const topScores = scores.slice(0, 5);
+    localStorage.setItem("minesweeper-scores", JSON.stringify(topScores));
+    showLeaderboard();
+  }
+
+  function showLeaderboard() {
+    const scores = JSON.parse(localStorage.getItem("minesweeper-scores") || "[]");
+    const list = document.getElementById("score-list");
+    list.innerHTML = "";
+    scores.forEach((score, index) => {
+      const li = document.createElement("li");
+      li.textContent = `#${index + 1}: ${score.time}s - ${score.date}`;
+      list.appendChild(li);
+    });
+    document.getElementById('start-screen').classList.remove('active');
+    document.getElementById('game-screen').classList.remove('active');
+    document.getElementById("leaderboard").style.display = "block";
+  }
+
+  function clearLeaderboard() {
+    localStorage.removeItem("minesweeper-scores");
+    document.getElementById("score-list").innerHTML = "";
+    // document.getElementById("leaderboard").style.display = "none";
+  }
+
 </script>
 </body>
 </html>
